@@ -30,6 +30,13 @@
   .btn.blue { background:linear-gradient(180deg,#5bc6ff,#2490e8); box-shadow:0 5px 0 #1765a8; }
   .btn.blue:active { box-shadow:0 2px 0 #1765a8; }
   .rules { text-align:left; background:#fff9; border-radius:14px; padding:12px 14px; font-size:14px; color:#5b4a1f; line-height:1.9; }
+  .ans { margin:6px auto 10px; background:#fff; border:2px dashed #ffb347; border-radius:16px;
+    padding:12px 18px 10px; display:inline-block; min-width:200px; }
+  .ans .lbl { font-size:13px; color:#8a6d3b; margin-bottom:4px; }
+  .ansChar { font-size:46px; color:#c0392b; font-weight:900; margin-right:10px; vertical-align:middle; }
+  .ansPy { font-size:32px; color:#1f6fb0; font-weight:800; vertical-align:middle; }
+  .ansWord { font-size:14px; color:#5b4a1f; margin-top:2px; }
+  .hint { margin-top:14px; font-size:13px; color:#a0834a; line-height:1.6; }
   #muteBtn { position:fixed; top:calc(env(safe-area-inset-top,0px) + 8px); right:10px; z-index:20; width:40px; height:40px;
     border:none; border-radius:50%; background:rgba(255,255,255,.9); font-size:15px; font-weight:800; color:#333; cursor:pointer;
     box-shadow:0 2px 8px rgba(0,0,0,.25); display:flex; align-items:center; justify-content:center; }
@@ -239,6 +246,13 @@ function heartDown(wrongPy){
 const panel=$('panel'), overlay=$('overlay');
 function drawOverlay(html){ panel.innerHTML=html; overlay.classList.add('show'); }
 function hideOverlay(){ overlay.classList.remove('show'); }
+overlay.addEventListener('click',e=>{
+  // 点击卡片外空白处：关闭结算卡并直接开下一局（开始页不响应）
+  if(e.target!==overlay) return;
+  if(scene!=='victory'&&scene!=='gameover') return;
+  hideOverlay();
+  startGame();
+});
 function showStart(){
   drawOverlay(`
     <h1>⭐ 拼音接金币</h1>
@@ -253,12 +267,22 @@ function showStart(){
     <button class="btn green" onclick="startGame();hideOverlay();">开始游戏</button>
   `);
 }
+function ansCard(){
+  const t=target||{char:'—',py:'—',word:''};
+  return `
+    <div class="ans">
+      <div class="lbl">本局生字 · 正确读音</div>
+      <div><span class="ansChar">${t.char}</span><span class="ansPy">${t.py}</span></div>
+      <div class="ansWord">${t.word&&t.word!==t.char?('成语 / 词语：'+t.word):''}</div>
+    </div>`;
+}
 function showVictory(){
   drawOverlay(`
     <h1>🎉 挑战成功！</h1>
     <div class="big">⭐⭐⭐</div>
     <div class="sub">连续答对 ${STAR_TARGET} 道生僻字拼音！<br>本轮共玩 ${roundNo} 题 · 剩余爱心 ${hearts} 颗</div>
-    <button class="btn" onclick="startGame();hideOverlay();">再来一轮</button>
+    ${ansCard()}
+    <div class="hint">轻点卡片外空白处，开启下一局</div>
   `);
 }
 function showGameOver(){
@@ -266,7 +290,8 @@ function showGameOver(){
     <h1>💔 爱心扣完啦</h1>
     <div class="big">${'⭐'.repeat(stars)}${'☆'.repeat(Math.max(0,STAR_TARGET-stars))}</div>
     <div class="sub">答对了 ${stars} 题，离 ${STAR_TARGET} 颗星还差一点！<br>看看金币上的拼音再出手，你能行的～</div>
-    <button class="btn blue" onclick="startGame();hideOverlay();">重新挑战</button>
+    ${ansCard()}
+    <div class="hint">轻点卡片外空白处，开启下一局</div>
   `);
 }
 
