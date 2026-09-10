@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>拼音接金币</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#0b1530;
+    font-family:"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+    user-select:none; -webkit-user-select:none; }
+  #wrap { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+  #cv { display:block; touch-action:none; background:#7ec8ff; border-radius:8px;
+    box-shadow:0 0 30px rgba(0,0,0,.35); }
+  /* ---- overlay 面板 ---- */
+  #overlay { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:10; }
+  #overlay.show { display:flex; }
+  .panel { width:min(88vw,440px); background:linear-gradient(160deg,#fff8e8,#ffe3b3);
+    border-radius:26px; padding:26px 22px 22px; text-align:center; box-shadow:0 14px 40px rgba(0,0,0,.45);
+    border:3px solid #ffd166; max-height:92vh; overflow:auto; }
+  .panel h1 { font-size:30px; color:#c0392b; letter-spacing:2px; }
+  .panel .sub { color:#8a6d3b; margin:8px 0 14px; font-size:14px; line-height:1.7; }
+  .panel .big { font-size:50px; margin:4px 0; }
+  .btn { display:inline-block; margin:8px 6px 0; padding:13px 30px; border:none; border-radius:40px;
+    font-size:20px; font-weight:800; color:#fff; cursor:pointer; background:linear-gradient(180deg,#ffb347,#ff8c00);
+    box-shadow:0 5px 0 #cc7000; transition:transform .06s; }
+  .btn:active { transform:translateY(3px); box-shadow:0 2px 0 #cc7000; }
+  .btn.green { background:linear-gradient(180deg,#5ad65a,#2e9e2e); box-shadow:0 5px 0 #1f751f; }
+  .btn.green:active { box-shadow:0 2px 0 #1f751f; }
+  .btn.blue { background:linear-gradient(180deg,#5bc6ff,#2490e8); box-shadow:0 5px 0 #1765a8; }
+  .btn.blue:active { box-shadow:0 2px 0 #1765a8; }
+  .rules { text-align:left; background:#fff9; border-radius:14px; padding:12px 14px; font-size:14px; color:#5b4a1f; line-height:1.9; }
+  .ans { margin:6px auto 10px; background:#fff; border:2px dashed #ffb347; border-radius:16px;
+    padding:12px 18px 10px; display:inline-block; min-width:200px; }
+  .ans .lbl { font-size:13px; color:#8a6d3b; margin-bottom:4px; }
+  .ansChar { font-size:46px; color:#c0392b; font-weight:900; margin-right:10px; vertical-align:middle; }
+  .ansPy { font-size:32px; color:#1f6fb0; font-weight:800; vertical-align:middle; }
+  .ansWord { font-size:14px; color:#5b4a1f; margin-top:2px; }
+  .hint { margin-top:14px; font-size:13px; color:#a0834a; line-height:1.6; }
+  #muteBtn { position:fixed; top:calc(env(safe-area-inset-top,0px) + 8px); right:10px; z-index:20; width:40px; height:40px;
+    border:none; border-radius:50%; background:rgba(255,255,255,.9); font-size:15px; font-weight:800; color:#333; cursor:pointer;
+    box-shadow:0 2px 8px rgba(0,0,0,.25); display:flex; align-items:center; justify-content:center; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+</div>
+<button id="muteBtn">音</button>
+<div id="overlay">
+  <div class="panel" id="panel"></div>
+</div>
+<script>
+/* ============ 题库（词语, 目标字, 带调拼音） ============ */
+const BANK = [["杞人忧天", "杞", "qǐ"], ["面面相觑", "觑", "qù"], ["狎昵", "狎", "xiá"], ["弓弦", "弦", "xián"], ["商榷", "榷", "què"], ["沁人心脾", "沁", "qìn"], ["垂涎三尺", "涎", "xián"], ["自诩", "诩", "xǔ"], ["色厉内荏", "荏", "rěn"], ["熟稔", "稔", "rěn"], ["酗酒", "酗", "xù"], ["芜杂", "芜", "wú"], ["缫丝", "缫", "sāo"], ["妊娠", "娠", "shēn"], ["泱泱大国", "泱", "yāng"], ["喑哑", "喑", "yīn"], ["莘莘学子", "莘", "shēn"], ["狩猎", "狩", "shòu"], ["吊唁", "唁", "yàn"], ["友谊", "谊", "yì"], ["吮吸", "吮", "shǔn"], ["不辨菽麦", "菽", "shū"], ["囿于成见", "囿", "yòu"], ["迂腐", "迂", "yū"], ["恃才傲物", "恃", "shì"], ["水獭", "獭", "tǎ"], ["囹圄", "囹圄", "líng yǔ"], ["自出机杼", "杼", "zhù"], ["鞭挞", "挞", "tà"], ["坍塌", "坍", "tān"], ["编纂", "纂", "zuǎn"], ["令人咋舌", "咋", "zé"], ["丝绦", "绦", "tāo"], ["悲恸", "恸", "tòng"], ["蓊郁", "蓊", "wěng"], ["孝悌", "悌", "tì"], ["逶迤", "逶迤", "wēi yí"], ["膝盖", "膝", "xī"], ["惊蛰", "蛰", "zhé"], ["诤友", "诤", "zhèng"], ["症结", "症", "zhēng"], ["箴言", "箴", "zhēn"], ["睚眦必报", "眦", "zì"], ["针砭", "砭", "biān"], ["贬谪", "谪", "zhé"], ["恣肆", "恣", "zì"], ["摒除", "摒", "bìng"], ["屏除", "屏", "bǐng"], ["梦魇", "魇", "yǎn"], ["驰骋", "骋", "chěng"], ["招聘", "聘", "pìn"], ["负隅顽抗", "隅", "yú"], ["讣告", "讣", "fù"], ["盘桓", "桓", "huán"], ["堕落", "堕", "duò"], ["断壁残垣", "垣", "yuán"], ["缉拿", "缉", "jī"], ["缜密", "缜", "zhěn"], ["编辑", "辑", "jí"], ["犄角", "犄", "jī"], ["掂量", "掂", "diān"], ["掎角之势", "掎", "jǐ"], ["竣工", "竣", "jùn"], ["腹诽", "诽", "fěi"], ["怙恶不悛", "悛", "quān"], ["羞赧", "赧", "nǎn"], ["针灸", "灸", "jiǔ"], ["赦免", "赦", "shè"], ["扑朔迷离", "朔", "shuò"], ["锲而不舍", "锲", "qiè"], ["横槊赋诗", "槊", "shuò"], ["祛寒", "祛", "qū"], ["契约", "契", "qì"], ["胆怯", "怯", "qiè"], ["懦弱", "懦", "nuò"], ["嫡亲", "嫡", "dí"], ["蠕动", "蠕", "rú"], ["蜷曲", "蜷", "quán"], ["气氛", "氛", "fēn"], ["缱绻", "缱绻", "qiǎn quǎn"], ["纰漏", "纰", "pī"], ["弹劾", "劾", "hé"], ["徇私", "徇", "xùn"], ["笑靥", "靥", "yè"], ["辍学", "辍", "chuò"], ["坠落", "坠", "zhuì"], ["谨慎", "慎", "shèn"], ["揶揄", "揶揄", "yé yú"], ["绯红", "绯", "fēi"], ["炙热", "炙", "zhì"], ["楔子", "楔", "xiē"], ["嗤笑", "嗤", "chī"], ["扼要", "扼", "è"], ["敷衍", "敷", "fū"], ["诘问", "诘", "jié"], ["毗邻", "毗", "pí"], ["谮言", "谮", "zèn"], ["戛然而止", "戛", "jiá"], ["僭越", "僭", "jiàn"], ["瞻仰", "瞻", "zhān"], ["腼腆", "腼腆", "miǎn tiǎn"], ["赡养", "赡", "shàn"], ["饮鸩止渴", "鸩", "zhèn"], ["奇葩", "葩", "pā"], ["抨击", "抨", "pēng"], ["鸠占鹊巢", "鸠", "jiū"], ["暴殄天物", "殄", "tiǎn"], ["倾圮", "圮", "pǐ"], ["饿殍遍野", "殍", "piǎo"], ["木柝", "柝", "tuò"], ["天寒地坼", "坼", "chè"], ["嫔妃", "嫔", "pín"], ["白发皤然", "皤", "pó"], ["狡黠", "黠", "xiá"], ["揠苗助长", "揠", "yà"], ["幡然醒悟", "幡", "fān"], ["滂沱", "滂沱", "pāng tuó"], ["偃旗息鼓", "偃", "yǎn"], ["赝品", "赝", "yàn"], ["窍门", "窍", "qiào"], ["悭吝", "悭", "qiān"], ["服膺", "膺", "yīng"], ["肄业", "肄", "yì"], ["众擎易举", "擎", "qíng"], ["擘画蓝图", "擘", "bò"]];
+
+/* ============ 工具 ============ */
+const $=id=>document.getElementById(id);
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const ri=(a,b)=>Math.floor(rnd(a,b+1));
+function shuffle(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+/* ============ 常量 ============ */
+const W=480, H=860;
+const STAR_TARGET=3, HEART_MAX=3;
+const COIN_R=32;
+const GOLD_COUNT=6;              // 每波 = 1正确 + 5干扰
+const BASKET_Y=H-148, BASKET_W=118, BASKET_H=58;
+
+/* ============ 状态 ============ */
+let ctx, cv;
+let scene='start';               // start / playing / clear / victory / gameover
+let hearts=HEART_MAX, stars=0, roundNo=0;
+let target=null;
+let coins=[], fx=[], particles=[], clouds=[];
+let basket={x:W/2};
+let spawnT=0, gapT=0, tipT=0, tipText='', clearT=0;
+let pool=[];                     // 洗好的题号队列
+let muted=false, audio=null, lastTime=0, caught=false;
+
+/* ============ 音频 ============ */
+function ac(){ if(!audio){ try{ audio=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return audio; }
+function tone(freq,dur,type,vol,when){
+  const a=ac(); if(!a||muted) return;
+  const o=a.createOscillator(), g=a.createGain();
+  o.type=type||'sine'; o.frequency.value=freq;
+  const t0=a.currentTime+(when||0);
+  g.gain.setValueAtTime(vol||0.18,t0);
+  g.gain.exponentialRampToValueAtTime(0.001,t0+dur);
+  o.connect(g); g.connect(a.destination); o.start(t0); o.stop(t0+dur+0.03);
+}
+const sfxGood=()=>{ tone(523,.13,'triangle',.18); tone(659,.13,'triangle',.18,.09); tone(784,.2,'triangle',.2,.18); };
+const sfxBad =()=>{ tone(220,.22,'sawtooth',.13); tone(150,.3,'sawtooth',.12,.1); };
+const sfxStar=()=>{ [523,659,784,1046].forEach((f,i)=>tone(f,.13,'triangle',.2,i*.1)); };
+const sfxWin =()=>{ [523,659,784,1046,784,1046,1318].forEach((f,i)=>tone(f,.16,'triangle',.2,i*.11)); };
+
+/* ============ 题库调度与干扰 ============ */
+function ensurePool(){
+  if(pool.length===0){
+    const all=shuffle(BANK.map((_,i)=>i));
+    if(target){ // 避免洗牌后新队列第一题恰好与当前/上一题同拼音
+      const cur=BANK[all[0]];
+      if(cur[2]===target.py && all.length>1){ all.push(all.shift()); }
+    }
+    pool=all;
+  }
+}
+function takeNext(){
+  ensurePool();
+  const idx=pool.shift();
+  return BANK[idx];
+}
+function buildRound(){
+  const it=takeNext();
+  target={word:it[0], char:it[1], py:it[2]};
+  roundNo++;
+}
+function normSyl(s){ return s.replace(/[āáǎà]/g,'a').replace(/[ēéěè]/g,'e').replace(/[īíǐì]/g,'i')
+  .replace(/[ōóǒò]/g,'o').replace(/[ūúǔù]/g,'u').replace(/[ǖǘǚǜ]/g,'ü'); }
+function makeDistract(answer, need){
+  const ansSyls=answer.split(' ');
+  const ansCore=ansSyls.map(normSyl);
+  const scored=[];
+  const allPys=[...new Set(BANK.map(b=>b[2]))];
+  for(const py of allPys){
+    if(py===answer) continue;
+    const syls=py.split(' ').map(normSyl);
+    let score=rnd(-1,1);
+    if(syls.length===ansCore.length){
+      let sameSyl=0;
+      for(let i=0;i<syls.length;i++){ if(syls[i]===ansCore[i]) sameSyl++; }
+      score+=sameSyl*30;
+      const a0=ansCore[0], p0=syls[0];
+      if(a0[0]===p0[0]){
+        score+=10;                       // 同声母
+        if(a0.length===p0.length && a0.slice(1)===p0.slice(1)) score+=55; // 仅声调不同
+      }
+    }
+    scored.push({py,score});
+  }
+  scored.sort((a,b)=>b.score-a.score);
+  const out=[];
+  for(const s of scored){ if(out.length>=need) break; out.push(s.py); }
+  let guard=0;
+  while(out.length<need && guard++<200){
+    const c=scored[ri(0,scored.length-1)].py;
+    if(!out.includes(c) && c!==answer) out.push(c);
+  }
+  return out;
+}
+function pickSpawnX(){
+  // 只在“顶部出生区”避让（避免新币与刚出现/同在顶部的币重叠），下方旧币不参与
+  let best=W/2, bestScore=-1;
+  for(let n=0;n<16;n++){
+    const x=ri(56,W-56);
+    let score=99999, bad=false;
+    for(const c of coins){
+      if(c.gone || c.y>360) continue;         // 只关心仍靠顶部的金币
+      const d=Math.abs(c.x-x);
+      if(d<86){ bad=true; break; }
+      if(d<score) score=d;
+    }
+    if(bad) continue;
+    if(score>bestScore){ bestScore=score; best=x; }
+  }
+  if(bestScore<0){ // 顶部已挤满：选与所有靠顶金币水平距离最大的位置
+    let topCoins=coins.filter(c=>!c.gone && c.y<=360).map(c=>c.x);
+    if(topCoins.length){
+      let cand=56, gap=0;
+      const xs=[...topCoins].sort((a,b)=>a-b);
+      for(let i=0;i<=xs.length;i++){
+        const a=(i===0)? 40 : xs[i-1]+40;
+        const b=(i===xs.length)? W-40 : xs[i]-40;
+        const w=b-a;
+        if(w>gap){ gap=w; cand=a+w/2; }
+      }
+      cand=Math.max(70,Math.min(W-70,cand));
+      return cand;
+    }
+  }
+  return best;
+}
+function newCoinsWave(){
+  coins=[];
+  const dist=makeDistract(target.py, GOLD_COUNT-1);
+  const labels=shuffle([target.py, ...dist]);
+  labels.forEach((py,i)=>{
+    coins.push({ py, correct:(py===target.py), x:pickSpawnX(), y:-(50+i*130)-ri(0,120),
+      vy:rnd(105,160), seed:rnd(0,6.28), gone:false });
+  });
+  gapT=1.2; spawnT=0;
+}
+function spawnOne(forceCorrect){
+  let py;
+  if(forceCorrect) py=target.py;
+  else { const ds=makeDistract(target.py,5); py=ds[ri(0,ds.length-1)]; }
+  coins.push({ py, correct:(py===target.py), x:pickSpawnX(), y:-COIN_R-20,
+    vy:rnd(105,160), seed:rnd(0,6.28), gone:false });
+}
+
+/* ============ 流程控制 ============ */
+function resetRun(){
+  hearts=HEART_MAX; stars=0; roundNo=0;
+  coins=[]; fx=[]; particles=[]; clouds=[];
+  scene='playing'; clearT=0; tipT=0;
+}
+function startGame(){
+  resetRun();
+  buildRound();
+  basket.x=W/2;
+  newCoinsWave();
+  setTip();
+  sfxGood();
+}
+function nextRound(){
+  scene='playing'; clearT=0;
+  coins=[]; fx=[];
+  buildRound();
+  basket.x=W/2;
+  newCoinsWave();
+  setTip();
+  sfxGood();
+}
+function setTip(){
+  tipT=2.0;
+  tipText=`第 ${roundNo} 题 · 接住「${target.char}」的正确读音`+
+    (target.word!==target.char ? `（${target.word}）` : '');
+}
+function starUp(){
+  stars++;
+  spawnBurst(basket.x, BASKET_Y-40, '#ffd700', 24);
+  spawnBurst(basket.x, BASKET_Y-40, '#fff', 10);
+  if(stars>=STAR_TARGET){ sfxWin(); }
+  else { fx.push({t:0,type:'good',text:'+1⭐'}); sfxStar(); }
+  scene='clear'; clearT= (stars>=STAR_TARGET? 1.5 : 1.15);
+}
+function heartDown(wrongPy){
+  hearts--;
+  spawnBurst(basket.x, BASKET_Y-40, '#e74c3c', 18);
+  fx.push({t:0,type:'bad',text:wrongPy});
+  sfxBad();
+  if(hearts<=0){ hearts=0; scene='clear'; clearT=0.9; }
+}
+
+/* ============ overlay ============ */
+const panel=$('panel'), overlay=$('overlay');
+function drawOverlay(html){ panel.innerHTML=html; overlay.classList.add('show'); }
+function hideOverlay(){ overlay.classList.remove('show'); }
+overlay.addEventListener('click',e=>{
+  // 点击卡片外空白处：关闭结算卡并直接开下一局（开始页不响应）
+  if(e.target!==overlay) return;
+  if(scene!=='victory'&&scene!=='gameover') return;
+  hideOverlay();
+  startGame();
+});
+function showStart(){
+  drawOverlay(`
+    <h1>⭐ 拼音接金币</h1>
+    <div class="sub">会读字、会辨音，金灿灿的小游戏等你来玩！</div>
+    <div class="rules">
+      · 篮子上会显示一个字，天上掉下一堆写着拼音的金币<br>
+      · 接住 <b>正确拼音</b> = 得一颗星，自动进入下一题（题目不重复）<br>
+      · 接到 <b>错误拼音</b> = 扣一颗心<br>
+      · 集满 3 颗星获胜；3 颗心扣完就输啦<br>
+      · 拖动 / 鼠标 / 方向键 控制篮子
+    </div>
+    <button class="btn green" onclick="startGame();hideOverlay();">开始游戏</button>
+  `);
+}
+function ansCard(){
+  const t=target||{char:'—',py:'—',word:''};
+  return `
+    <div class="ans">
+      <div class="lbl">本局生字 · 正确读音</div>
+      <div><span class="ansChar">${t.char}</span><span class="ansPy">${t.py}</span></div>
+      <div class="ansWord">${t.word&&t.word!==t.char?('成语 / 词语：'+t.word):''}</div>
+    </div>`;
+}
+function showVictory(){
+  drawOverlay(`
+    <h1>🎉 挑战成功！</h1>
+    <div class="big">⭐⭐⭐</div>
+    <div class="sub">连续答对 ${STAR_TARGET} 道生僻字拼音！<br>本轮共玩 ${roundNo} 题 · 剩余爱心 ${hearts} 颗</div>
+    ${ansCard()}
+    <div class="hint">轻点卡片外空白处，开启下一局</div>
+  `);
+}
+function showGameOver(){
+  drawOverlay(`
+    <h1>💔 爱心扣完啦</h1>
+    <div class="big">${'⭐'.repeat(stars)}${'☆'.repeat(Math.max(0,STAR_TARGET-stars))}</div>
+    <div class="sub">答对了 ${stars} 题，离 ${STAR_TARGET} 颗星还差一点！<br>看看金币上的拼音再出手，你能行的～</div>
+    ${ansCard()}
+    <div class="hint">轻点卡片外空白处，开启下一局</div>
+  `);
+}
+
+/* ============ 粒子 ============ */
+function spawnBurst(x,y,color,n){
+  for(let i=0;i<n;i++){
+    const a=rnd(0,Math.PI*2), sp=rnd(70,280);
+    particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-90,g:430,life:rnd(.5,1.1),t:0,color,r:rnd(2,5)});
+  }
+}
+function updateParticles(dt){
+  particles.forEach(p=>{ p.t+=dt; p.vy+=p.g*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; });
+  particles=particles.filter(p=>p.t<p.life);
+}
+function drawParticles(){
+  particles.forEach(p=>{
+    ctx.globalAlpha=Math.max(0,1-p.t/p.life);
+    ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill();
+  });
+  ctx.globalAlpha=1;
+}
+
+/* ============ 输入 ============ */
+let pointing=false, pid=null;
+window.addEventListener('pointerdown',e=>{ pointing=true; pid=e.pointerId; setBasketByClient(e.clientX); });
+window.addEventListener('pointermove',e=>{ if(pointing && (pid===null||e.pointerId===pid)) setBasketByClient(e.clientX); });
+window.addEventListener('pointerup',()=>{ pointing=false; pid=null; });
+window.addEventListener('pointercancel',()=>{ pointing=false; pid=null; });
+function setBasketByClient(clientX){
+  const r=cv.getBoundingClientRect();
+  if(r.width<=0) return;
+  const x=(clientX-r.left)*(W/r.width);
+  basket.x=Math.max(BASKET_W/2+6, Math.min(W-BASKET_W/2-6, x));
+}
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft'){ basket.x-=32; e.preventDefault(); }
+  else if(e.key==='ArrowRight'){ basket.x+=32; e.preventDefault(); }
+  basket.x=Math.max(BASKET_W/2+6, Math.min(W-BASKET_W/2-6, basket.x));
+});
+
+/* ============ 绘制 ============ */
+function rrect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function drawStar(x,y,r,color,outline){
+  ctx.beginPath();
+  for(let i=0;i<10;i++){
+    const ang=-Math.PI/2+i*Math.PI/5, rr=i%2===0?r:r*0.45;
+    const px=x+Math.cos(ang)*rr, py=y+Math.sin(ang)*rr;
+    i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+  }
+  ctx.closePath(); ctx.fillStyle=color; ctx.fill();
+  if(outline){ ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke(); }
+}
+function heartPath(x,y,s){
+  ctx.beginPath(); ctx.moveTo(x,y+s*0.32);
+  ctx.bezierCurveTo(x-s, y-s*0.35, x-s*0.5, y-s*1.05, x, y-s*0.5);
+  ctx.bezierCurveTo(x+s*0.5, y-s*1.05, x+s, y-s*0.35, x, y+s*0.32);
+}
+function drawCloud(x,y,s){
+  ctx.fillStyle='rgba(255,255,255,.8)';
+  ctx.beginPath(); ctx.arc(x, y, 26*s,0,7); ctx.arc(x+30*s,y-14*s,20*s,0,7);
+  ctx.arc(x+58*s,y,24*s,0,7); ctx.arc(x+28*s,y+10*s,25*s,0,7); ctx.fill();
+}
+function drawSky(){
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#6fc1ff'); g.addColorStop(.6,'#cfefff'); g.addColorStop(1,'#b9ecc2');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  if(clouds.length===0) for(let i=0;i<4;i++) clouds.push({x:rnd(0,W),y:rnd(70,300),s:rnd(.6,1.15),v:rnd(6,16)});
+  clouds.forEach(c=>{ c.x+=c.v*0.016; if(c.x>W+90) c.x=-90; drawCloud(c.x,c.y,c.s); });
+  ctx.fillStyle='#63c96c'; ctx.fillRect(0,H-118,W,118);
+  ctx.fillStyle='rgba(0,0,0,.05)'; ctx.beginPath(); ctx.ellipse(W/2,H-84,230,22,0,0,7); ctx.fill();
+  ctx.fillStyle='#79d882'; ctx.beginPath(); ctx.ellipse(W*0.2,H-86,150,20,0,0,7); ctx.fill();
+  ctx.fillStyle='#57b95f'; ctx.beginPath(); ctx.ellipse(W*0.82,H-92,140,18,0,0,7); ctx.fill();
+}
+function drawHUD(){
+  ctx.fillStyle='rgba(255,255,255,.3)'; rrect(8,8,W-16,60,20); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.35)'; rrect(8,8,W-16,60,20); ctx.fill();
+  // 星星(左)
+  for(let i=0;i<STAR_TARGET;i++) drawStar(30+i*32, 38, 12.5, i<stars?'#ffd700':'rgba(120,110,80,.35)', i<stars);
+  ctx.font='800 18px "PingFang SC","Microsoft YaHei",sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillStyle='#6a4a00'; ctx.fillText(stars+'/'+STAR_TARGET, 118, 39);
+  // 爱心(中)
+  for(let i=0;i<HEART_MAX;i++){
+    const hx=W/2-80+i*52, hy=38;
+    heartPath(hx,hy, i<hearts?22:21);
+    ctx.fillStyle=i<hearts?'#ff4d5e':'rgba(130,130,150,.3)';
+    ctx.fill();
+    if(i<hearts){ ctx.strokeStyle='#d92638'; ctx.lineWidth=1.8; ctx.stroke(); }
+  }
+  // 题号(右)
+  ctx.textAlign='right'; ctx.fillStyle='#1f6fb0'; ctx.font='800 21px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.fillText('第 '+roundNo+' 题', W-20, 38);
+}
+function drawCoin(c){
+  if(c.gone) return;
+  const cx=c.x, cy=c.y;
+  c.seed+=0.04;
+  const bob=Math.sin(c.seed)*3;
+  ctx.save(); ctx.translate(cx, cy+bob);
+  // 光晕
+  const gl=ctx.createRadialGradient(0,0,2,0,0,COIN_R+10);
+  gl.addColorStop(0,'rgba(255,220,80,.55)'); gl.addColorStop(1,'rgba(255,220,80,0)');
+  ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(0,0,COIN_R+10,0,7); ctx.fill();
+  // 币面
+  const g=ctx.createLinearGradient(-COIN_R,-COIN_R,COIN_R,COIN_R);
+  g.addColorStop(0,'#fff2a8'); g.addColorStop(.55,'#ffd24a'); g.addColorStop(1,'#eda11b');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,COIN_R,0,7); ctx.fill();
+  ctx.lineWidth=3; ctx.strokeStyle='#c78a0a'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,0,COIN_R-5,0,7); ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=1.6; ctx.stroke();
+  // 高光
+  ctx.fillStyle='rgba(255,255,255,.35)'; ctx.beginPath(); ctx.ellipse(-12,-13,9,5,-0.7,0,7); ctx.fill();
+  ctx.restore();
+  // 拼音
+  const n=c.py.split(' ').length;
+  const fs = n>=2 ? 17 : (c.py.length>=5?20:24);
+  ctx.font='800 '+fs+'px "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#7a3a00';
+  ctx.fillText(c.py, cx, cy+bob+1);
+}
+function drawBasket(){
+  const x=basket.x, y=BASKET_Y;
+  ctx.save();
+  // 手柄
+  ctx.strokeStyle='#7c4f16'; ctx.lineWidth=8; ctx.lineCap='round';
+  ctx.beginPath(); ctx.arc(x,y-38,18,Math.PI*0.9,Math.PI*2.1); ctx.stroke();
+  // 篮体
+  const g=ctx.createLinearGradient(x-BASKET_W/2,0,x+BASKET_W/2,0);
+  g.addColorStop(0,'#9a611f'); g.addColorStop(.5,'#e0a53e'); g.addColorStop(1,'#9a611f');
+  ctx.fillStyle=g;
+  ctx.beginPath();
+  ctx.moveTo(x-BASKET_W/2, y-BASKET_H/2-2);
+  ctx.lineTo(x+BASKET_W/2, y-BASKET_H/2-2);
+  ctx.lineTo(x+BASKET_W/2-13, y+BASKET_H/2+4);
+  ctx.quadraticCurveTo(x, y+BASKET_H/2+20, x-BASKET_W/2+13, y+BASKET_H/2+4);
+  ctx.closePath(); ctx.fill();
+  ctx.lineWidth=3; ctx.strokeStyle='#6b4310'; ctx.stroke();
+  // 编织
+  ctx.strokeStyle='rgba(107,67,16,.3)'; ctx.lineWidth=1.6;
+  for(let i=-1;i<=1;i++){
+    ctx.beginPath(); ctx.moveTo(x+i*22, y-BASKET_H/2+7);
+    ctx.lineTo(x+i*15, y+BASKET_H/2-2); ctx.stroke();
+  }
+  // 前框沿
+  ctx.strokeStyle='#6b4310'; ctx.lineWidth=4;
+  ctx.beginPath(); ctx.moveTo(x-BASKET_W/2+7, y-BASKET_H/2);
+  ctx.lineTo(x+BASKET_W/2-7, y-BASKET_H/2); ctx.stroke();
+  // 字牌
+  ctx.beginPath(); ctx.arc(x, y+4, 25, 0, 7);
+  ctx.fillStyle='#fffdf0'; ctx.fill();
+  ctx.lineWidth=3; ctx.strokeStyle='#c98a1b'; ctx.stroke();
+  ctx.font='900 29px "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#b03a2e';
+  ctx.fillText(target?target.char:'字', x, y+5);
+  ctx.restore();
+}
+function drawTip(dt){
+  if(tipT<=0) return;
+  tipT-=dt;
+  const fadeIn=Math.min(1,(2.0-tipT)/0.25), fadeOut=Math.min(1,tipT/0.4);
+  ctx.globalAlpha=Math.max(0,Math.min(fadeIn,fadeOut));
+  ctx.font='800 21px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.textAlign='center';
+  const w=ctx.measureText(tipText).width;
+  ctx.fillStyle='rgba(15,35,60,.85)'; rrect(W/2-w/2-20, 118, w+40, 54, 15); ctx.fill();
+  ctx.fillStyle='#ffe98a'; ctx.fillText(tipText, W/2, 147);
+  ctx.globalAlpha=1;
+}
+function drawFx(dt){
+  fx.forEach(f=>f.t+=dt);
+  fx=fx.filter(f=>f.t<1.0);
+  fx.forEach(f=>{
+    ctx.globalAlpha=Math.max(0,1-f.t);
+    ctx.font='900 58px "PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.textAlign='center';
+    ctx.fillStyle=f.type==='bad'?'#e74c3c':'#23a52e';
+    ctx.fillText(f.type==='bad'?'✘ '+f.text:'✓ '+f.text, basket.x, BASKET_Y-100-f.t*60);
+  });
+  ctx.globalAlpha=1;
+}
+
+/* ============ 主循环 ============ */
+function update(dt){
+  if(scene==='start'||scene==='victory'||scene==='gameover'){ updateParticles(dt); return; }
+  if(scene==='clear'){
+    clearT-=dt; updateParticles(dt);
+    if(clearT<=0){
+      if(hearts<=0){ scene='gameover'; showGameOver(); }
+      else if(stars>=STAR_TARGET){ scene='victory'; showVictory(); }
+      else nextRound();
+    }
+    return;
+  }
+  // playing
+  spawnT+=dt; gapT-=dt;
+  const hasCorrect=coins.some(c=>c.correct&&!c.gone);
+  if(gapT<=0){
+    if(coins.length<9){
+      if(!hasCorrect) spawnOne(true); else spawnOne(false);
+    }
+    gapT = rnd(1.0,1.55);
+  }
+  caught=false;
+  for(const c of coins){
+    if(c.gone) continue;
+    c.y+=c.vy*dt;
+    if(!caught && c.y>BASKET_Y-34 && c.y<BASKET_Y+12 && Math.abs(c.x-basket.x)<(BASKET_W/2-6+COIN_R-26)){
+      caught=true;
+      c.gone=true;
+      if(c.correct) starUp(); else heartDown(c.py);
+      break;
+    }
+    if(c.y-COIN_R>H+10){ c.gone=true; }
+  }
+  coins=coins.filter(c=>!c.gone);
+  updateParticles(dt);
+}
+function render(){
+  ctx.clearRect(0,0,W,H);
+  drawSky(); drawHUD();
+  coins.forEach(drawCoin);
+  if(target) drawBasket();
+  drawParticles(); drawTip(1/60); drawFx(1/60);
+}
+
+/* ============ 初始化 ============ */
+let raf=null;
+function fitCanvas(){
+  const vw=window.innerWidth, vh=window.innerHeight;
+  const scale=Math.min(vw/W, vh/H)*0.98;
+  cv.style.width=(W*scale)+'px'; cv.style.height=(H*scale)+'px';
+}
+function init(){
+  cv=$('cv'); ctx=cv.getContext('2d');
+  const dpr=Math.min(window.devicePixelRatio||1, 3);
+  cv.width=W*dpr; cv.height=H*dpr;
+  ctx.scale(dpr,dpr);
+  fitCanvas();
+  window.addEventListener('resize',fitCanvas);
+  $('muteBtn').addEventListener('click',()=>{ muted=!muted; $('muteBtn').textContent=muted?'静':'音'; });
+  showStart();
+  lastTime=performance.now();
+  raf=requestAnimationFrame(loop);
+}
+function loop(ts){
+  const dt=Math.min(0.033,(ts-lastTime)/1000||0.016);
+  lastTime=ts;
+  update(dt); render();
+  raf=requestAnimationFrame(loop);
+}
+init();
+</script>
+</body>
+</html>
