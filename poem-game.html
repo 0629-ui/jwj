@@ -191,14 +191,14 @@ function choose(btn, txt, q){
 function showPanel(ok, btn, q){
   panelTitle.textContent = ok ? '回答正确！' : '回答错误';
   panelTitle.className = ok ? 'correct' : 'wrong';
-  solCorrect.innerHTML = '正确答案：'.replace('正确答案：','') ;
   solCorrect.innerHTML = esc(q.correct).replace(q.ch, '<span class="hl-ok">'+esc(q.ch)+'</span>');
   if(ok){
     solWrongRow.style.display = 'none';
   } else {
     solWrongRow.style.display = '';
-    solWrong.innerHTML = esc(q.pick).replace(q.ch, '<span class="hl-bad">'+esc(q.ch)+'</span>');
-    if(!q.pick.includes(q.ch)) solWrong.innerHTML = esc(q.pick);
+    const pick = btn ? btn.dataset.txt : '';
+    solWrong.innerHTML = esc(pick).replace(q.ch, '<span class="hl-bad">'+esc(q.ch)+'</span>');
+    if(!pick.includes(q.ch)) solWrong.innerHTML = esc(pick);
   }
   panelTip.textContent = '《'+q.title+'》· '+q.src+' 中应为「'+q.ch+'」，注意与形近字区分。';
   btnNext.textContent = (qIdx+1 >= round.length) ? '查看结算 →' : '下一题 →';
