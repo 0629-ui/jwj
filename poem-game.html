@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#f7c873">
+<title>古诗文默写 · 小游戏乐园</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",serif;
+    background:linear-gradient(170deg,#f7c873 0%,#ffe9c2 46%,#d9f0d0 100%);
+    color:#3b2a10;user-select:none;-webkit-user-select:none;
+  }
+  /* ===== 全屏等比缩放画布（与拼音接金币/成语选释义同一套） ===== */
+  #viewport{
+    position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    overflow:hidden;touch-action:none;
+  }
+  #app{
+    position:relative;flex:0 0 auto;
+    width:480px;min-height:860px;
+    padding:12px 14px 14px;
+    display:flex;flex-direction:column;gap:10px;
+    transform-origin:center center;will-change:transform;
+  }
+
+  /* ============ 顶部状态栏 ============ */
+  .hud{display:flex;align-items:center;gap:8px;}
+  .icon-btn{
+    width:36px;height:36px;flex:0 0 36px;border:none;border-radius:50%;
+    background:rgba(255,255,255,.9);color:#8a5a12;font-size:22px;font-weight:900;
+    line-height:1;cursor:pointer;box-shadow:0 2px 6px rgba(120,80,20,.18);
+    display:flex;align-items:center;justify-content:center;padding-bottom:3px;
+  }
+  .icon-btn:active{transform:scale(.94);}
+  .hud-mid{flex:1;min-width:0;}
+  .hud-mid .t{font-size:17px;font-weight:900;color:#7a4e0b;letter-spacing:2px;}
+  .hud-mid .q{font-size:12px;color:#9a7740;margin-top:1px;}
+  .counters{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+  .row-icons{font-size:15px;letter-spacing:1px;line-height:1.15;white-space:nowrap;}
+
+  /* ============ 题面 ============ */
+  .stage{flex:1;display:flex;flex-direction:column;justify-content:space-evenly;gap:12px;min-height:0;}
+  .card{
+    background:linear-gradient(160deg,#fffdf8 0%,#fff3dd 100%);
+    border:3px solid #fff;border-radius:24px;
+    box-shadow:0 8px 22px rgba(140,95,25,.16);
+    padding:18px 16px;text-align:center;
+  }
+  .card .ask{font-size:13px;color:#a9824a;letter-spacing:1px;}
+  .card .src{
+    margin-top:8px;font-size:15px;font-weight:900;color:#8a5a12;letter-spacing:1px;
+    background:rgba(247,200,115,.35);display:inline-block;padding:3px 12px;border-radius:20px;
+  }
+  .card .line{
+    margin-top:14px;font-size:25px;font-weight:900;color:#4a330e;line-height:1.7;
+    letter-spacing:2px;word-break:break-all;
+  }
+  .card .line .blank{
+    display:inline-block;min-width:1.5em;padding:0 6px;margin:0 2px;
+    border-bottom:4px solid #f0a832;color:#d88a12;background:rgba(255,225,160,.5);
+    border-radius:8px;font-size:1.15em;
+  }
+  .card .hint{margin-top:10px;font-size:12px;color:#b08a55;}
+
+  /* ============ 选项：四个大字方块 ============ */
+  .options{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .opt{
+    position:relative;display:flex;align-items:center;justify-content:center;gap:8px;
+    background:#fff;border:3px solid #f3ddb8;border-radius:18px;
+    padding:16px 10px;font-size:30px;font-weight:900;color:#4a330e;
+    font-family:inherit;cursor:pointer;box-shadow:0 5px 0 #e8cf9e;
+    transition:border-color .15s,background .15s,transform .08s,box-shadow .08s;
+  }
+  .opt:active:not(.locked){transform:translateY(2px);box-shadow:0 3px 0 #e8cf9e;}
+  .opt .k{
+    position:absolute;left:10px;top:8px;width:22px;height:22px;border-radius:50%;
+    background:#f8ecd6;color:#a9824a;font-size:12px;font-weight:900;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .opt.ok{background:#e8fff0;border-color:#4ecb71;box-shadow:0 5px 0 #a9e8bd;}
+  .opt.ok .k{background:#4ecb71;color:#fff;}
+  .opt.bad{background:#fff0f0;border-color:#ff7b7b;box-shadow:0 5px 0 #ffc4c4;}
+  .opt.bad .k{background:#ff7b7b;color:#fff;}
+  .opt .mark{position:absolute;right:12px;top:10px;font-size:20px;}
+  .opt.locked{cursor:default;}
+
+  /* ============ 弹层 ============ */
+  .mask{
+    position:absolute;inset:0;background:rgba(72,45,12,.45);
+    display:none;align-items:center;justify-content:center;padding:18px;z-index:20;
+  }
+  .mask.show{display:flex;}
+  .panel{
+    width:100%;max-width:410px;background:#fff;border-radius:24px;
+    padding:20px 18px;box-shadow:0 18px 40px rgba(60,38,10,.34);
+    animation:pop .22s ease-out;overflow:hidden;
+  }
+  @keyframes pop{from{transform:scale(.86);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .panel h2{font-size:20px;color:#8a5a12;text-align:center;letter-spacing:1px;}
+  .panel .sub{text-align:center;font-size:13px;color:#a9824a;margin-top:6px;}
+  .sol-line{
+    margin:14px 0 10px;text-align:center;font-size:24px;font-weight:900;
+    color:#4a330e;letter-spacing:2px;line-height:1.7;word-break:break-all;
+  }
+  .sol-line .hl{color:#2f9f57;}
+  .sol-line .hl.bad{color:#e04545;}
+  .sol-box{background:#f4fbff;border:2px dashed #b9dcf5;border-radius:16px;padding:12px 14px;}
+  .sol-box .lb{font-size:12px;font-weight:900;color:#2f8f5b;letter-spacing:1px;}
+  .sol-box .tx{font-size:15px;color:#3b2a10;line-height:1.6;margin-top:4px;}
+  .sol-box.warn{background:#fff8f2;border-color:#ffd6b0;margin-top:10px;}
+  .sol-box.warn .lb{color:#d97a1a;}
+  .stars-big{text-align:center;font-size:34px;letter-spacing:6px;margin:12px 0 4px;}
+  .recap{margin-top:12px;display:flex;flex-direction:column;gap:8px;max-height:300px;overflow:hidden;}
+  .recap .it{
+    background:#f7fbff;border-left:5px solid #7fc4ef;border-radius:10px;padding:9px 11px;
+  }
+  .recap .it.miss{background:#fff5f5;border-left-color:#ff9a9a;}
+  .recap .it .w{font-size:14px;font-weight:900;color:#8a5a12;letter-spacing:1px;}
+  .recap .it .w em{font-style:normal;font-size:12px;color:#b08a55;font-weight:400;margin-left:6px;}
+  .recap .it .d{font-size:13px;color:#7a4e0b;margin-top:3px;line-height:1.5;}
+  .recap .it .d b{color:#2f9f57;}
+  .recap .it.miss .d b{color:#e04545;}
+  .btns{display:flex;flex-direction:column;gap:10px;margin-top:16px;}
+  .btn{
+    border:none;border-radius:40px;padding:14px 18px;font-size:17px;font-weight:900;
+    font-family:inherit;letter-spacing:1px;cursor:pointer;
+  }
+  .btn.primary{background:linear-gradient(135deg,#ffd166,#f0a832);color:#6b3d00;box-shadow:0 5px 0 #d98b00;}
+  .btn.ghost{background:#f8f1e4;color:#8a6a35;box-shadow:0 5px 0 #e6d5b5;}
+  .btn:active{transform:translateY(3px);box-shadow:none;}
+
+  /* 星星动效 */
+  .fly{position:absolute;font-size:26px;pointer-events:none;z-index:30;animation:fly .85s ease-out forwards;}
+  @keyframes fly{
+    0%{opacity:1;transform:translate(0,0) scale(.7);}
+    100%{opacity:0;transform:translate(0,-110px) scale(1.5);}
+  }
+  .shake{animation:shake .32s;}
+  @keyframes shake{
+    0%,100%{transform:translateX(0);}25%{transform:translateX(-7px);}
+    50%{transform:translateX(7px);}75%{transform:translateX(-4px);}
+  }
+</style>
+</head>
+<body>
+<div id="viewport">
+<div id="app">
+  <div class="hud">
+    <button class="icon-btn" id="btnBack" aria-label="返回">‹</button>
+    <div class="hud-mid">
+      <div class="t">古诗文默写</div>
+      <div class="q" id="qidx">第 1 / 3 题</div>
+    </div>
+    <div class="counters">
+      <div class="row-icons" id="hudStars">⭐️⭐️⭐️</div>
+      <div class="row-icons" id="hudHearts">❤️❤️❤️</div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="card">
+      <div class="ask">补全诗文，选出正确的字</div>
+      <div class="src" id="src">《——》</div>
+      <div class="line" id="line">——</div>
+      <div class="hint">四个字长得很像，仔细看哦</div>
+    </div>
+    <div class="options" id="options"></div>
+  </div>
+
+  <div class="mask" id="mask">
+    <!-- 解析 -->
+    <div class="panel" id="solPanel" style="display:none">
+      <h2 id="solTitle">差一点点！</h2>
+      <div class="sol-line" id="solLine">—</div>
+      <div class="sol-box">
+        <div class="lb">✔ 正确的字</div>
+        <div class="tx" id="solCorrect">—</div>
+      </div>
+      <div class="sol-box warn" id="solWarnBox" style="display:none">
+        <div class="lb">✘ 你选的字</div>
+        <div class="tx" id="solWrong">—</div>
+      </div>
+      <div class="btns">
+        <button class="btn primary" id="btnNext">下一题 ▶</button>
+      </div>
+    </div>
+    <!-- 结算 -->
+    <div class="panel" id="endPanel" style="display:none">
+      <h2 id="endTitle">—</h2>
+      <div class="sub" id="endSub">—</div>
+      <div class="stars-big" id="endStars">⭐️⭐️⭐️</div>
+      <div class="recap" id="recap"></div>
+      <div class="btns">
+        <button class="btn primary" id="btnAgain">🔁 再来一局</button>
+        <button class="btn ghost" id="btnQuit">🏠 退出</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+const POEM_BANK = [{"title": "劝学", "src": "荀子", "text": "青，取之于蓝，而青于蓝；冰，水为之，而寒于水", "display": "青，取之于蓝，而青于蓝；冰，水为之，而____于水", "correct": "寒", "wrongs": ["塞", "含", "韩"]}, {"title": "劝学", "src": "荀子", "text": "故不积跬步，无以至千里；不积小流，无以成江海", "display": "故不积____步，无以至千里；不积小流，无以成江海", "correct": "跬", "wrongs": ["蛙", "畦", "洼"]}, {"title": "劝学", "src": "荀子", "text": "锲而舍之，朽木不折；锲而不舍，金石可镂", "display": "锲而舍之，朽木不折；锲而不舍，金石可____", "correct": "镂", "wrongs": ["楼", "偻", "蝼"]}, {"title": "劝学", "src": "荀子", "text": "驽马十驾，功在不舍", "display": "____马十驾，功在不舍", "correct": "驽", "wrongs": ["奴", "努", "弩"]}, {"title": "劝学", "src": "荀子", "text": "君子生非异也，善假于物也", "display": "君子生非异也，善____于物也", "correct": "假", "wrongs": ["暇", "瑕", "遐"]}, {"title": "劝学", "src": "荀子", "text": "学不可以已", "display": "学不可以____", "correct": "已", "wrongs": ["己", "巳", "巴"]}, {"title": "师说", "src": "韩愈", "text": "师者，所以传道受业解惑也", "display": "师者，所以传道____业解惑也", "correct": "受", "wrongs": ["授", "收", "爱"]}, {"title": "师说", "src": "韩愈", "text": "是故无贵无贱，无长无少，道之所存，师之所存也", "display": "是故无贵无____，无长无少，道之所存，师之所存也", "correct": "贱", "wrongs": ["浅", "栈", "践"]}, {"title": "师说", "src": "韩愈", "text": "闻道有先后，术业有专攻", "display": "闻道有先后，术业有专____", "correct": "攻", "wrongs": ["功", "工", "玫"]}, {"title": "师说", "src": "韩愈", "text": "吾师道也，夫庸知其年之先后生于吾乎", "display": "吾师道也，夫____知其年之先后生于吾乎", "correct": "庸", "wrongs": ["佣", "拥", "慵"]}, {"title": "六国论", "src": "苏洵", "text": "六国破灭，非兵不利，战不善，弊在赂秦", "display": "六国破灭，非兵不利，战不善，弊在____秦", "correct": "赂", "wrongs": ["络", "洛", "路"]}, {"title": "六国论", "src": "苏洵", "text": "至丹以荆卿为计，始速祸焉", "display": "至丹以荆卿为计，始____祸焉", "correct": "速", "wrongs": ["束", "述", "塑"]}, {"title": "六国论", "src": "苏洵", "text": "不赂者以赂者丧，盖失强援，不能独完", "display": "不赂者以赂者____，盖失强援，不能独完", "correct": "丧", "wrongs": ["衷", "哀", "衰"]}, {"title": "陋室铭", "src": "刘禹锡", "text": "斯是陋室，惟吾德馨", "display": "斯是陋室，惟吾德____", "correct": "馨", "wrongs": ["罄", "磬", "衅"]}, {"title": "陋室铭", "src": "刘禹锡", "text": "苔痕上阶绿，草色入帘青", "display": "____痕上阶绿，草色入帘青", "correct": "苔", "wrongs": ["笞", "抬", "跆"]}, {"title": "陋室铭", "src": "刘禹锡", "text": "谈笑有鸿儒，往来无白丁", "display": "谈笑有____儒，往来无白丁", "correct": "鸿", "wrongs": ["宏", "洪", "弘"]}, {"title": "岳阳楼记", "src": "范仲淹", "text": "先天下之忧而忧，后天下之乐而乐", "display": "____天下之忧而忧，后天下之乐而乐", "correct": "先", "wrongs": ["仙", "纤", "鲜"]}, {"title": "岳阳楼记", "src": "范仲淹", "text": "衔远山，吞长江，浩浩汤汤", "display": "____远山，吞长江，浩浩汤汤", "correct": "衔", "wrongs": ["街", "衍", "御"]}, {"title": "岳阳楼记", "src": "范仲淹", "text": "不以物喜，不以己悲", "display": "不以物喜，不以____悲", "correct": "己", "wrongs": ["已", "巳", "巴"]}, {"title": "爱莲说", "src": "周敦颐", "text": "出淤泥而不染，濯清涟而不妖", "display": "出淤泥而不染，____清涟而不妖", "correct": "濯", "wrongs": ["擢", "灌", "耀"]}, {"title": "爱莲说", "src": "周敦颐", "text": "香远益清，亭亭净植", "display": "香远益清，亭亭净____", "correct": "植", "wrongs": ["殖", "值", "直"]}, {"title": "关雎", "src": "《诗经》", "text": "关关雎鸠，在河之洲", "display": "关关____鸠，在河之洲", "correct": "雎", "wrongs": ["睢", "雌", "淮"]}, {"title": "关雎", "src": "《诗经》", "text": "窈窕淑女，君子好逑", "display": "窈窕淑女，君子好____", "correct": "逑", "wrongs": ["球", "俅", "求"]}, {"title": "关雎", "src": "《诗经》", "text": "求之不得，寤寐思服", "display": "求之不得，寤____思服", "correct": "寐", "wrongs": ["昧", "魅", "妹"]}, {"title": "伐檀", "src": "《诗经》", "text": "坎坎伐檀兮，置之河之干兮", "display": "坎坎伐____兮，置之河之干兮", "correct": "檀", "wrongs": ["擅", "颤", "毡"]}, {"title": "送杜少府之任蜀州", "src": "王勃", "text": "城阙辅三秦，风烟望五津", "display": "城____辅三秦，风烟望五津", "correct": "阙", "wrongs": ["阕", "獗", "阒"]}, {"title": "送杜少府之任蜀州", "src": "王勃", "text": "海内存知己，天涯若比邻", "display": "海内存知己，天____若比邻", "correct": "涯", "wrongs": ["崖", "睚", "捱"]}, {"title": "茅屋为秋风所破歌", "src": "杜甫", "text": "高者挂罥长林梢，下者飘转沉塘坳", "display": "高者挂____长林梢，下者飘转沉塘坳", "correct": "罥", "wrongs": ["绢", "捐", "娟"]}, {"title": "茅屋为秋风所破歌", "src": "杜甫", "text": "安得广厦千万间，大庇天下寒士俱欢颜", "display": "安得广厦千万间，大____天下寒士俱欢颜", "correct": "庇", "wrongs": ["屁", "芘", "吡"]}, {"title": "茅屋为秋风所破歌", "src": "杜甫", "text": "何时眼前突兀见此屋，吾庐独破受冻死亦足", "display": "何时眼前突____见此屋，吾庐独破受冻死亦足", "correct": "兀", "wrongs": ["冗", "几", "凡"]}, {"title": "春望", "src": "杜甫", "text": "感时花溅泪，恨别鸟惊心", "display": "感时花____泪，恨别鸟惊心", "correct": "溅", "wrongs": ["贱", "践", "饯"]}, {"title": "春望", "src": "杜甫", "text": "烽火连三月，家书抵万金", "display": "____火连三月，家书抵万金", "correct": "烽", "wrongs": ["峰", "锋", "逢"]}, {"title": "行路难（其一）", "src": "李白", "text": "金樽清酒斗十千，玉盘珍羞直万钱", "display": "金____清酒斗十千，玉盘珍羞直万钱", "correct": "樽", "wrongs": ["尊", "蹲", "遵"]}, {"title": "行路难（其一）", "src": "李白", "text": "长风破浪会有时，直挂云帆济沧海", "display": "长风破浪会有时，直挂云帆济____海", "correct": "沧", "wrongs": ["苍", "舱", "伧"]}, {"title": "将进酒", "src": "李白", "text": "君不见黄河之水天上来，奔流到海不复回", "display": "君不见黄河之水天上来，奔流到海不____回", "correct": "复", "wrongs": ["腹", "覆", "馥"]}, {"title": "将进酒", "src": "李白", "text": "天生我材必有用，千金散尽还复来", "display": "天生我____必有用，千金散尽还复来", "correct": "材", "wrongs": ["才", "财", "豺"]}, {"title": "钱塘湖春行", "src": "白居易", "text": "几处早莺争暖树，谁家新燕啄春泥", "display": "几处早莺争暖树，谁家新燕____春泥", "correct": "啄", "wrongs": ["琢", "逐", "涿"]}, {"title": "钱塘湖春行", "src": "白居易", "text": "乱花渐欲迷人眼，浅草才能没马蹄", "display": "乱花渐欲迷人眼，浅草才能没马____", "correct": "蹄", "wrongs": ["啼", "缔", "剃"]}, {"title": "琵琶行", "src": "白居易", "text": "千呼万唤始出来，犹抱琵琶半遮面", "display": "千呼万唤____出来，犹抱琵琶半遮面", "correct": "始", "wrongs": ["使", "驶", "矢"]}, {"title": "琵琶行", "src": "白居易", "text": "同是天涯沦落人，相逢何必曾相识", "display": "同是天涯____落人，相逢何必曾相识", "correct": "沦", "wrongs": ["纶", "伦", "轮"]}, {"title": "琵琶行", "src": "白居易", "text": "大珠小珠落玉盘", "display": "大珠小珠落玉____", "correct": "盘", "wrongs": ["盆", "磐", "般"]}, {"title": "琵琶行", "src": "白居易", "text": "别有幽愁暗恨生，此时无声胜有声", "display": "别有____愁暗恨生，此时无声胜有声", "correct": "幽", "wrongs": ["忧", "悠", "优"]}, {"title": "无题", "src": "李商隐", "text": "相见时难别亦难，东风无力百花残", "display": "相见时难别亦难，东风无力百花____", "correct": "残", "wrongs": ["惨", "灿", "践"]}, {"title": "无题", "src": "李商隐", "text": "春蚕到死丝方尽，蜡炬成灰泪始干", "display": "春蚕到死丝方尽，蜡____成灰泪始干", "correct": "炬", "wrongs": ["拒", "距", "矩"]}, {"title": "泊秦淮", "src": "杜牧", "text": "烟笼寒水月笼沙，夜泊秦淮近酒家", "display": "烟笼____水月笼沙，夜泊秦淮近酒家", "correct": "寒", "wrongs": ["赛", "塞", "害"]}, {"title": "泊秦淮", "src": "杜牧", "text": "商女不知亡国恨，隔江犹唱后庭花", "display": "商女不知亡国恨，隔江____唱后庭花", "correct": "犹", "wrongs": ["尤", "由", "游"]}, {"title": "虞美人", "src": "李煜", "text": "春花秋月何时了，往事知多少", "display": "春花秋月何时____，往事知多少", "correct": "了", "wrongs": ["瞭", "辽", "寥"]}, {"title": "虞美人", "src": "李煜", "text": "问君能有几多愁？恰似一江春水向东流", "display": "问君能有几多____？恰似一江春水向东流", "correct": "愁", "wrongs": ["仇", "筹", "酬"]}, {"title": "虞美人", "src": "李煜", "text": "雕栏玉砌应犹在，只是朱颜改", "display": "雕栏玉____应犹在，只是朱颜改", "correct": "砌", "wrongs": ["彻", "沏", "玦"]}, {"title": "念奴娇·赤壁怀古", "src": "苏轼", "text": "大江东去，浪淘尽，千古风流人物", "display": "大江东去，浪____尽，千古风流人物", "correct": "淘", "wrongs": ["涛", "掏", "陶"]}, {"title": "念奴娇·赤壁怀古", "src": "苏轼", "text": "乱石穿空，惊涛拍岸，卷起千堆雪", "display": "乱石穿空，惊____拍岸，卷起千堆雪", "correct": "涛", "wrongs": ["淘", "掏", "蹈"]}, {"title": "念奴娇·赤壁怀古", "src": "苏轼", "text": "羽扇纶巾，谈笑间，樯橹灰飞烟灭", "display": "羽扇纶巾，谈笑间，____橹灰飞烟灭", "correct": "樯", "wrongs": ["墙", "蔷", "嫱"]}, {"title": "念奴娇·赤壁怀古", "src": "苏轼", "text": "故国神游，多情应笑我，早生华发", "display": "故国神游，多情应笑我，早生____发", "correct": "华", "wrongs": ["花", "桦", "哗"]}, {"title": "水调歌头", "src": "苏轼", "text": "但愿人长久，千里共婵娟", "display": "但愿人长久，千里共____娟", "correct": "婵", "wrongs": ["蝉", "禅", "潺"]}, {"title": "水调歌头", "src": "苏轼", "text": "不应有恨，何事长向别时圆", "display": "不应有恨，何事长向别时____", "correct": "圆", "wrongs": ["园", "员", "缘"]}, {"title": "雨霖铃", "src": "柳永", "text": "多情自古伤离别，更那堪，冷落清秋节", "display": "多情自古伤离别，更那____，冷落清秋节", "correct": "堪", "wrongs": ["勘", "戡", "斟"]}, {"title": "雨霖铃", "src": "柳永", "text": "今宵酒醒何处？杨柳岸，晓风残月", "display": "今____酒醒何处？杨柳岸，晓风残月", "correct": "宵", "wrongs": ["霄", "硝", "削"]}, {"title": "永遇乐·京口北固亭怀古", "src": "辛弃疾", "text": "舞榭歌台，风流总被雨打风吹去", "display": "舞____歌台，风流总被雨打风吹去", "correct": "榭", "wrongs": ["谢", "射", "树"]}, {"title": "永遇乐·京口北固亭怀古", "src": "辛弃疾", "text": "凭谁问：廉颇老矣，尚能饭否", "display": "凭谁问：廉____老矣，尚能饭否", "correct": "颇", "wrongs": ["坡", "波", "破"]}, {"title": "天净沙·秋思", "src": "马致远", "text": "枯藤老树昏鸦，小桥流水人家", "display": "枯____老树昏鸦，小桥流水人家", "correct": "藤", "wrongs": ["腾", "疼", "誊"]}, {"title": "天净沙·秋思", "src": "马致远", "text": "夕阳西下，断肠人在天涯", "display": "夕阳西下，断肠人在天____", "correct": "涯", "wrongs": ["崖", "睚", "捱"]}, {"title": "沁园春·长沙", "src": "毛泽东", "text": "看万山红遍，层林尽染", "display": "看万山红遍，层林尽____", "correct": "染", "wrongs": ["冉", "苒", "柒"]}, {"title": "沁园春·长沙", "src": "毛泽东", "text": "怅寥廓，问苍茫大地，谁主沉浮", "display": "怅寥____，问苍茫大地，谁主沉浮", "correct": "廓", "wrongs": ["扩", "阔", "阙"]}, {"title": "沁园春·长沙", "src": "毛泽东", "text": "曾记否，到中流击水，浪遏飞舟", "display": "曾记否，到中流击水，浪____飞舟", "correct": "遏", "wrongs": ["竭", "喝", "褐"]}, {"title": "静女", "src": "《诗经》", "text": "静女其姝，俟我于城隅", "display": "静女其____，俟我于城隅", "correct": "姝", "wrongs": ["殊", "珠", "株"]}, {"title": "静女", "src": "《诗经》", "text": "爱而不见，搔首踟蹰", "display": "爱而不见，搔首踟____", "correct": "蹰", "wrongs": ["厨", "橱", "躇"]}, {"title": "国殇", "src": "屈原", "text": "身既死兮神以灵，子魂魄兮为鬼雄", "display": "身既死兮神以灵，子魂____兮为鬼雄", "correct": "魄", "wrongs": ["魂", "魅", "魏"]}, {"title": "孔雀东南飞", "src": "《乐府诗集》", "text": "君当作磐石，妾当作蒲苇", "display": "君当作____石，妾当作蒲苇", "correct": "磐", "wrongs": ["盘", "磬", "罄"]}, {"title": "短歌行", "src": "曹操", "text": "青青子衿，悠悠我心", "display": "青青子____，悠悠我心", "correct": "衿", "wrongs": ["矜", "吟", "衾"]}, {"title": "短歌行", "src": "曹操", "text": "山不厌高，海不厌深。周公吐哺，天下归心", "display": "山不厌高，海不厌深。周公吐____，天下归心", "correct": "哺", "wrongs": ["捕", "浦", "脯"]}, {"title": "归园田居（其一）", "src": "陶渊明", "text": "羁鸟恋旧林，池鱼思故渊", "display": "____鸟恋旧林，池鱼思故渊", "correct": "羁", "wrongs": ["掣", "罟", "缰"]}, {"title": "归园田居（其一）", "src": "陶渊明", "text": "榆柳荫后檐，桃李罗堂前", "display": "榆柳____后檐，桃李罗堂前", "correct": "荫", "wrongs": ["阴", "茵", "英"]}, {"title": "归园田居（其一）", "src": "陶渊明", "text": "久在樊笼里，复得返自然", "display": "久在____笼里，复得返自然", "correct": "樊", "wrongs": ["焚", "棼", "攀"]}, {"title": "春江花月夜", "src": "张若虚", "text": "春江潮水连海平，海上明月共潮生", "display": "春江潮水连海平，海上____月共潮生", "correct": "明", "wrongs": ["朋", "朗", "萌"]}, {"title": "春江花月夜", "src": "张若虚", "text": "滟滟随波千万里，何处春江无月明", "display": "滟滟随波____万里，何处春江无月明", "correct": "千", "wrongs": ["牵", "迁", "芊"]}, {"title": "春江花月夜", "src": "张若虚", "text": "江天一色无纤尘，皎皎空中孤月轮", "display": "江天一色无纤尘，皎皎空中孤月____", "correct": "轮", "wrongs": ["伦", "沦", "纶"]}, {"title": "从军行七首（其四）", "src": "王昌龄", "text": "黄沙百战穿金甲，不破楼兰终不还", "display": "黄沙百战____金甲，不破楼兰终不还", "correct": "穿", "wrongs": ["川", "串", "窜"]}, {"title": "山居秋暝", "src": "王维", "text": "明月松间照，清泉石上流", "display": "明月松间照，清____石上流", "correct": "泉", "wrongs": ["全", "权", "拳"]}, {"title": "山居秋暝", "src": "王维", "text": "竹喧归浣女，莲动下渔舟", "display": "竹喧归____女，莲动下渔舟", "correct": "浣", "wrongs": ["婉", "莞", "皖"]}, {"title": "蜀道难", "src": "李白", "text": "蜀道之难，难于上青天", "display": "____道之难，难于上青天", "correct": "蜀", "wrongs": ["属", "署", "黍"]}, {"title": "蜀道难", "src": "李白", "text": "尔来四万八千岁，不与秦塞通人烟", "display": "尔来四万八千岁，不与秦____通人烟", "correct": "塞", "wrongs": ["赛", "寒", "寨"]}, {"title": "蜀道难", "src": "李白", "text": "飞湍瀑流争喧豗，砯崖转石万壑雷", "display": "飞____瀑流争喧豗，砯崖转石万壑雷", "correct": "湍", "wrongs": ["揣", "端", "瑞"]}, {"title": "燕歌行（并序）", "src": "高适", "text": "汉家烟尘在东北，汉将辞家破残贼", "display": "汉家烟尘在东北，汉将辞家破残____", "correct": "贼", "wrongs": ["赋", "贱", "戴"]}, {"title": "登高", "src": "杜甫", "text": "无边落木萧萧下，不尽长江滚滚来", "display": "无边落____萧萧下，不尽长江滚滚来", "correct": "木", "wrongs": ["目", "牧", "睦"]}, {"title": "登高", "src": "杜甫", "text": "万里悲秋常作客，百年多病独登台", "display": "万里悲秋____作客，百年多病独登台", "correct": "常", "wrongs": ["长", "尝", "偿"]}, {"title": "登高", "src": "杜甫", "text": "艰难苦恨繁霜鬓，潦倒新停浊酒杯", "display": "艰难苦恨繁霜____，潦倒新停浊酒杯", "correct": "鬓", "wrongs": ["宾", "滨", "缤"]}, {"title": "兵车行", "src": "杜甫", "text": "车辚辚，马萧萧，行人弓箭各在腰", "display": "车辚辚，马萧萧，行人弓箭各在____", "correct": "腰", "wrongs": ["要", "邀", "夭"]}, {"title": "李凭箜篌引", "src": "李贺", "text": "吴质不眠倚桂树，露脚斜飞湿寒兔", "display": "吴质不眠____桂树，露脚斜飞湿寒兔", "correct": "倚", "wrongs": ["椅", "绮", "崎"]}, {"title": "李凭箜篌引", "src": "李贺", "text": "昆山玉碎凤凰叫，芙蓉泣露香兰笑", "display": "昆山玉碎凤____叫，芙蓉泣露香兰笑", "correct": "凰", "wrongs": ["皇", "煌", "隍"]}, {"title": "过华清宫（其一）", "src": "杜牧", "text": "一骑红尘妃子笑，无人知是荔枝来", "display": "一骑红尘____子笑，无人知是荔枝来", "correct": "妃", "wrongs": ["姬", "姮", "妲"]}, {"title": "过华清宫（其一）", "src": "杜牧", "text": "长安回望绣成堆，山顶千门次第开", "display": "长安回望____成堆，山顶千门次第开", "correct": "绣", "wrongs": ["秀", "诱", "锈"]}, {"title": "锦瑟", "src": "李商隐", "text": "锦瑟无端五十弦，一弦一柱思华年", "display": "锦____无端五十弦，一弦一柱思华年", "correct": "瑟", "wrongs": ["琴", "琶", "琵"]}, {"title": "锦瑟", "src": "李商隐", "text": "沧海月明珠有泪，蓝田日暖玉生烟", "display": "____海月明珠有泪，蓝田日暖玉生烟", "correct": "沧", "wrongs": ["苍", "舱", "伧"]}, {"title": "锦瑟", "src": "李商隐", "text": "此情可待成追忆，只是当时已惘然", "display": "此情可待成追忆，只是当时已____然", "correct": "惘", "wrongs": ["罔", "网", "忘"]}, {"title": "破阵子（燕子来时新社）", "src": "晏殊", "text": "燕子来时新社，梨花落后清明", "display": "燕子来时新____，梨花落后清明", "correct": "社", "wrongs": ["杜", "祖", "礼"]}, {"title": "破阵子（燕子来时新社）", "src": "晏殊", "text": "疑怪昨宵春梦好，元是今朝斗草赢", "display": "疑怪昨宵春梦好，元是今朝斗草____", "correct": "赢", "wrongs": ["嬴", "羸", "萤"]}, {"title": "苏幕遮（碧云天）", "src": "范仲淹", "text": "碧云天，黄叶地，秋色连波，波上寒烟翠", "display": "碧云天，黄叶地，秋色连波，波上寒烟____", "correct": "翠", "wrongs": ["粹", "萃", "猝"]}, {"title": "苏幕遮（碧云天）", "src": "范仲淹", "text": "明月楼高休独倚。酒入愁肠，化作相思泪", "display": "明月楼高休独____。酒入愁肠，化作相思泪", "correct": "倚", "wrongs": ["椅", "绮", "崎"]}, {"title": "桂枝香·金陵怀古", "src": "王安石", "text": "千里澄江似练，翠峰如簇", "display": "千里澄江似练，翠峰如____", "correct": "簇", "wrongs": ["族", "猝", "簌"]}, {"title": "桂枝香·金陵怀古", "src": "王安石", "text": "至今商女，时时犹唱，后庭遗曲", "display": "至今商女，时时____唱，后庭遗曲", "correct": "犹", "wrongs": ["尤", "由", "游"]}, {"title": "苏幕遮（燎沉香）", "src": "周邦彦", "text": "叶上初阳干宿雨，水面清圆，一一风荷举", "display": "叶上初阳干宿雨，水面清____，一一风荷举", "correct": "圆", "wrongs": ["园", "员", "缘"]}, {"title": "苏幕遮（燎沉香）", "src": "周邦彦", "text": "故乡遥，何日去？家住吴门，久作长安旅", "display": "故乡遥，何日去？家住吴门，久作长安____", "correct": "旅", "wrongs": ["旋", "族", "簇"]}, {"title": "声声慢", "src": "李清照", "text": "寻寻觅觅，冷冷清清，凄凄惨惨戚戚", "display": "____寻觅觅，冷冷清清，凄凄惨惨戚戚", "correct": "寻", "wrongs": ["浔", "循", "峋"]}, {"title": "声声慢", "src": "李清照", "text": "梧桐更兼细雨，到黄昏、点点滴滴", "display": "____桐更兼细雨，到黄昏、点点滴滴", "correct": "梧", "wrongs": ["捂", "唔", "悟"]}, {"title": "声声慢", "src": "李清照", "text": "满地黄花堆积，憔悴损，如今有谁堪摘", "display": "满地黄花堆积，____悴损，如今有谁堪摘", "correct": "憔", "wrongs": ["瞧", "蕉", "礁"]}, {"title": "声声慢", "src": "李清照", "text": "三杯两盏淡酒，怎敌他、晚来风急", "display": "三杯两____淡酒，怎敌他、晚来风急", "correct": "盏", "wrongs": ["浅", "栈", "残"]}, {"title": "书愤", "src": "陆游", "text": "楼船夜雪瓜洲渡，铁马秋风大散关", "display": "楼船夜雪瓜洲____，铁马秋风大散关", "correct": "渡", "wrongs": ["度", "镀", "踱"]}, {"title": "书愤", "src": "陆游", "text": "出师一表真名世，千载谁堪伯仲间", "display": "出师一表真名世，千载谁____伯仲间", "correct": "堪", "wrongs": ["勘", "戡", "斟"]}, {"title": "扬州慢", "src": "姜夔", "text": "二十四桥仍在，波心荡，冷月无声", "display": "二十四桥仍在，波心____，冷月无声", "correct": "荡", "wrongs": ["宕", "砀", "烫"]}, {"title": "扬州慢", "src": "姜夔", "text": "杜郎俊赏，算而今、重到须惊", "display": "杜郎____赏，算而今、重到须惊", "correct": "俊", "wrongs": ["竣", "峻", "浚"]}, {"title": "窦娥冤（【滚绣球】）", "src": "关汉卿", "text": "地也，你不分好歹何为地！天也，你错勘贤愚枉做天", "display": "地也，你不分好歹何为地！天也，你错____贤愚枉做天", "correct": "勘", "wrongs": ["戡", "堪", "斟"]}, {"title": "窦娥冤（【滚绣球】）", "src": "关汉卿", "text": "有日月朝暮悬，有鬼神掌着生死权", "display": "有日月朝暮____，有鬼神掌着生死权", "correct": "悬", "wrongs": ["县", "炫", "眩"]}, {"title": "长亭送别（【端正好】）", "src": "王实甫", "text": "碧云天，黄花地，西风紧，北雁南飞", "display": "碧云天，黄花地，西风紧，北____南飞", "correct": "雁", "wrongs": ["燕", "莺", "鹰"]}, {"title": "长亭送别（【端正好】）", "src": "王实甫", "text": "晓来谁染霜林醉？总是离人泪", "display": "晓来谁____霜林醉？总是离人泪", "correct": "染", "wrongs": ["冉", "苒", "柒"]}, {"title": "子路、曾皙、冉有、公西华侍坐", "src": "《论语》", "text": "浴乎沂，风乎舞雩，咏而归", "display": "浴乎____，风乎舞雩，咏而归", "correct": "沂", "wrongs": ["圻", "欣", "昕"]}, {"title": "子路、曾皙、冉有、公西华侍坐", "src": "《论语》", "text": "鼓瑟希，铿尔，舍瑟而作", "display": "鼓瑟希，____尔，舍瑟而作", "correct": "铿", "wrongs": ["坚", "悭", "鏖"]}, {"title": "公输", "src": "《墨子》", "text": "子墨子闻之，起于鲁，行十日十夜而至于郢", "display": "子墨子闻之，起于鲁，行十日十夜而至于____", "correct": "郢", "wrongs": ["呈", "程", "埕"]}, {"title": "寡人之于国也", "src": "《孟子》", "text": "不违农时，谷不可胜食也", "display": "不____农时，谷不可胜食也", "correct": "违", "wrongs": ["伟", "苇", "纬"]}, {"title": "寡人之于国也", "src": "《孟子》", "text": "颁白者不负戴于道路矣", "display": "____白者不负戴于道路矣", "correct": "颁", "wrongs": ["斑", "班", "扮"]}, {"title": "庖丁解牛", "src": "《庄子》", "text": "庖丁为文惠君解牛，手之所触，肩之所倚", "display": "____丁为文惠君解牛，手之所触，肩之所倚", "correct": "庖", "wrongs": ["疱", "炮", "刨"]}, {"title": "庖丁解牛", "src": "《庄子》", "text": "以无厚入有间，恢恢乎其于游刃必有余地矣", "display": "以无厚入有间，恢恢乎其于游____必有余地矣", "correct": "刃", "wrongs": ["韧", "仞", "纫"]}, {"title": "烛之武退秦师", "src": "《左传》", "text": "夜缒而出，见秦伯", "display": "夜____而出，见秦伯", "correct": "缒", "wrongs": ["捶", "锤", "棰"]}, {"title": "烛之武退秦师", "src": "《左传》", "text": "越国以鄙远，君知其难也", "display": "越国以____远，君知其难也", "correct": "鄙", "wrongs": ["僻", "弊", "蔽"]}, {"title": "触龙说赵太后", "src": "《战国策》", "text": "位尊而无功，奉厚而无劳", "display": "位____而无功，奉厚而无劳", "correct": "尊", "wrongs": ["遵", "撙", "蹲"]}, {"title": "鸿门宴", "src": "司马迁", "text": "沛公军霸上，未得与项羽相见", "display": "沛公军____上，未得与项羽相见", "correct": "霸", "wrongs": ["坝", "靶", "把"]}, {"title": "鸿门宴", "src": "司马迁", "text": "项庄舞剑，意在沛公", "display": "项庄舞剑，意在____公", "correct": "沛", "wrongs": ["霈", "肺", "市"]}, {"title": "鸿门宴", "src": "司马迁", "text": "大行不顾细谨，大礼不辞小让", "display": "大行不顾细____，大礼不辞小让", "correct": "谨", "wrongs": ["紧", "锦", "瑾"]}, {"title": "廉颇蔺相如列传", "src": "司马迁", "text": "臣所以去亲戚而事君者，徒慕君之高义也", "display": "臣所以去亲戚而事君者，徒____君之高义也", "correct": "慕", "wrongs": ["幕", "墓", "募"]}, {"title": "廉颇蔺相如列传", "src": "司马迁", "text": "相如度秦王特以诈详为予赵城，实不可得", "display": "相如度秦王特以诈____为予赵城，实不可得", "correct": "详", "wrongs": ["祥", "洋", "样"]}, {"title": "过秦论（上）", "src": "贾谊", "text": "振长策而御宇内，吞二周而亡诸侯", "display": "振长____而御宇内，吞二周而亡诸侯", "correct": "策", "wrongs": ["册", "刺", "束"]}, {"title": "过秦论（上）", "src": "贾谊", "text": "一夫作难而七庙隳，身死人手，为天下笑者，何也", "display": "一夫作难而七庙____，身死人手，为天下笑者，何也", "correct": "隳", "wrongs": ["堕", "隋", "惰"]}, {"title": "苏武传（节选）", "src": "班固", "text": "仗汉节牧羊，卧起操持，节旄尽落", "display": "仗汉节牧羊，卧起操持，节____尽落", "correct": "旄", "wrongs": ["毫", "豪", "耗"]}, {"title": "兰亭集序", "src": "王羲之", "text": "群贤毕至，少长咸集", "display": "群贤毕至，少长____集", "correct": "咸", "wrongs": ["感", "减", "缄"]}, {"title": "兰亭集序", "src": "王羲之", "text": "固知一死生为虚诞，齐彭殇为妄作", "display": "固知一死生为虚诞，齐彭____为妄作", "correct": "殇", "wrongs": ["觞", "伤", "疡"]}, {"title": "张衡传", "src": "范晔", "text": "举孝廉不行，连辟公府不就", "display": "举孝廉不行，连____公府不就", "correct": "辟", "wrongs": ["避", "壁", "臂"]}, {"title": "张衡传", "src": "范晔", "text": "衡不慕当世，所居之官辄积年不徙", "display": "衡不慕当世，所居之官____积年不徙", "correct": "辄", "wrongs": ["辙", "撤", "澈"]}, {"title": "陈情表", "src": "李密", "text": "臣以险衅，夙遭闵凶", "display": "臣以险____，夙遭闵凶", "correct": "衅", "wrongs": ["畔", "伴", "胖"]}, {"title": "陈情表", "src": "李密", "text": "茕茕孑立，形影相吊", "display": "茕茕____立，形影相吊", "correct": "孑", "wrongs": ["子", "孓", "孒"]}, {"title": "游褒禅山记", "src": "王安石", "text": "而世之奇伟、瑰怪、非常之观，常在于险远", "display": "而世之奇伟、____怪、非常之观，常在于险远", "correct": "瑰", "wrongs": ["傀", "愧", "魄"]}, {"title": "游褒禅山记", "src": "王安石", "text": "尽吾志也而不能至者，可以无悔矣", "display": "尽吾志也而不能至者，可以无____矣", "correct": "悔", "wrongs": ["诲", "晦", "梅"]}, {"title": "赤壁赋", "src": "苏轼", "text": "清风徐来，水波不兴", "display": "清风徐来，水波不____", "correct": "兴", "wrongs": ["性", "幸", "新"]}, {"title": "赤壁赋", "src": "苏轼", "text": "纵一苇之所如，凌万顷之茫然", "display": "纵一____之所如，凌万顷之茫然", "correct": "苇", "wrongs": ["伟", "纬", "韦"]}, {"title": "赤壁赋", "src": "苏轼", "text": "舞幽壑之潜蛟，泣孤舟之嫠妇", "display": "舞幽壑之潜蛟，泣孤舟之____妇", "correct": "嫠", "wrongs": ["厘", "黧", "理"]}, {"title": "赤壁赋", "src": "苏轼", "text": "哀吾生之须臾，羡长江之无穷", "display": "哀吾生之须____，羡长江之无穷", "correct": "臾", "wrongs": ["叟", "曳", "更"]}, {"title": "项脊轩志", "src": "归有光", "text": "三五之夜，明月半墙，桂影斑驳", "display": "三五之夜，明月半墙，桂影斑____", "correct": "驳", "wrongs": ["跋", "拔", "拨"]}, {"title": "登泰山记", "src": "姚鼐", "text": "苍山负雪，明烛天南", "display": "苍山负雪，明____天南", "correct": "烛", "wrongs": ["浊", "触", "独"]}, {"title": "蜀相", "src": "杜甫", "text": "映阶碧草自春色，隔叶黄鹂空好音", "display": "映阶碧草自春色，隔叶黄____空好音", "correct": "鹂", "wrongs": ["丽", "犁", "黎"]}, {"title": "蜀相", "src": "杜甫", "text": "出师未捷身先死，长使英雄泪满襟", "display": "出师未捷身先死，长使英雄泪满____", "correct": "襟", "wrongs": ["矜", "禁", "噤"]}, {"title": "送瘟神（其一）", "src": "毛泽东", "text": "绿水青山枉自多，华佗无奈小虫何", "display": "绿水青山枉自多，华____无奈小虫何", "correct": "佗", "wrongs": ["驼", "驮", "坨"]}, {"title": "送瘟神（其一）", "src": "毛泽东", "text": "千村薜荔人遗矢，万户萧疏鬼唱歌", "display": "千村____荔人遗矢，万户萧疏鬼唱歌", "correct": "薜", "wrongs": ["劈", "臂", "璧"]}, {"title": "送瘟神（其二）", "src": "毛泽东", "text": "春风杨柳万千条，六亿神州尽舜尧", "display": "春风杨柳万千条，六亿神州尽舜____", "correct": "尧", "wrongs": ["饶", "浇", "骁"]}, {"title": "送瘟神（其二）", "src": "毛泽东", "text": "借问瘟君欲何往，纸船明烛照天烧", "display": "借问瘟君欲何往，纸船明____照天烧", "correct": "烛", "wrongs": ["浊", "触", "独"]}];
+const HOME_URL = "index.html";
+const ROUND_SIZE = 3, MAX_STAR = 3, MAX_HEART = 3;
+const VW = 480, VH = 860;
+
+const $ = id => document.getElementById(id);
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+/* ---------- 音效 ---------- */
+let AC = null;
+function beep(type) {
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const seq = type === "ok" ? [[740, 0], [988, .09], [1319, .18]]
+             : type === "bad" ? [[300, 0], [200, .12]]
+             : [[659, 0], [784, .1], [988, .2], [1319, .3]];
+    seq.forEach(([f, t]) => {
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = type === "bad" ? "sawtooth" : "triangle";
+      o.frequency.value = f;
+      g.gain.setValueAtTime(.0001, AC.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(.16, AC.currentTime + t + .02);
+      g.gain.exponentialRampToValueAtTime(.0001, AC.currentTime + t + .22);
+      o.connect(g).connect(AC.destination);
+      o.start(AC.currentTime + t); o.stop(AC.currentTime + t + .26);
+    });
+  } catch (e) {}
+}
+
+/* ---------- 抽题池：全局洗牌不重复 ---------- */
+let POOL = [];
+function drawItem() {
+  if (!POOL.length) POOL = shuffle(POEM_BANK.slice());
+  return POOL.pop();
+}
+
+/* ---------- 组题：正确字 + 3 个形近干扰 ---------- */
+function buildQuestion(item) {
+  const opts = shuffle([
+    { text: item.correct, ok: true },
+    { text: item.wrongs[0], ok: false },
+    { text: item.wrongs[1], ok: false },
+    { text: item.wrongs[2], ok: false }
+  ]);
+  return { item, opts };
+}
+
+/* ---------- 状态 ---------- */
+let S = { stars: 0, hearts: MAX_HEART, idx: 0, qs: [], cur: null, locked: false, log: [] };
+
+const hudStars = () => "⭐️".repeat(S.stars) + "☆".repeat(Math.max(0, MAX_STAR - S.stars));
+const hudHearts = () => "❤️".repeat(S.hearts) + "🤍".repeat(Math.max(0, MAX_HEART - S.hearts));
+
+function renderHUD() {
+  $("hudStars").textContent = hudStars();
+  $("hudHearts").textContent = hudHearts();
+  $("qidx").textContent = "第 " + Math.min(S.idx + 1, ROUND_SIZE) + " / " + ROUND_SIZE + " 题";
+}
+
+/* ---------- 渲染题目 ---------- */
+function renderQuestion() {
+  S.locked = false;
+  S.cur = S.qs[S.idx];
+  const it = S.cur.item;
+  $("src").textContent = "《" + it.title + "》 · " + it.src;
+  const line = $("line");
+  line.innerHTML = "";
+  const parts = it.display.split("____");
+  parts.forEach((p, i) => {
+    if (p) line.appendChild(document.createTextNode(p));
+    if (i < parts.length - 1) {
+      const b = document.createElement("span");
+      b.className = "blank"; b.textContent = "?";
+      line.appendChild(b);
+    }
+  });
+  const box = $("options");
+  box.innerHTML = "";
+  ["A", "B", "C", "D"].forEach((k, i) => {
+    const o = S.cur.opts[i];
+    const b = document.createElement("button");
+    b.className = "opt";
+    b.innerHTML = '<span class="k">' + k + '</span><span class="tx"></span>';
+    b.querySelector(".tx").textContent = o.text;
+    b.addEventListener("click", () => pick(i, b));
+    box.appendChild(b);
+  });
+  renderHUD();
+}
+
+/* ---------- 作答 ---------- */
+function pick(i, btn) {
+  if (S.locked) return;
+  S.locked = true;
+  const opt = S.cur.opts[i];
+  S.cur.lastPick = opt.text;
+  document.querySelectorAll(".opt").forEach(b => b.classList.add("locked"));
+  const it = S.cur.item;
+
+  if (opt.ok) {
+    btn.classList.add("ok");
+    btn.insertAdjacentHTML("beforeend", '<span class="mark">✔</span>');
+    S.stars++;
+    S.log.push({ title: it.title, correct: it.correct, miss: false });
+    renderHUD();
+    flyStar(btn);
+    beep("ok");
+    setTimeout(() => advance(), 850);
+  } else {
+    btn.classList.add("bad");
+    btn.classList.add("shake");
+    btn.insertAdjacentHTML("beforeend", '<span class="mark">✘</span>');
+    const right = [...document.querySelectorAll(".opt")].find(b => S.cur.opts[[...document.querySelectorAll(".opt")].indexOf(b)].ok);
+    if (right) { right.classList.add("ok"); right.insertAdjacentHTML("beforeend", '<span class="mark">✔</span>'); }
+    S.hearts--;
+    S.log.push({ title: it.title, correct: it.correct, miss: true });
+    renderHUD();
+    beep("bad");
+    setTimeout(() => showSolution(), 420);
+  }
+}
+
+function flyStar(anchor) {
+  const app = $("app");
+  const r = anchor.getBoundingClientRect();
+  const ar = app.getBoundingClientRect();
+  const k = ar.width / (app.offsetWidth || VW);
+  const s = document.createElement("div");
+  s.className = "fly";
+  s.textContent = "⭐️";
+  s.style.left = ((r.left - ar.left) / k + r.width / k / 2 - 13) + "px";
+  s.style.top = ((r.top - ar.top) / k - 6) + "px";
+  app.appendChild(s);
+  setTimeout(() => s.remove(), 900);
+}
+
+/* ---------- 解析弹层 ---------- */
+function showSolution() {
+  const it = S.cur.item;
+  const full = it.text;
+  $("solTitle").textContent = S.hearts <= 0 ? "爱心用完啦" : "答错啦，看解析～";
+  /* 完整句子里高亮正确字 */
+  const line = $("solLine");
+  line.innerHTML = "";
+  const cidx = full.indexOf(it.correct);
+  if (cidx >= 0) {
+    line.appendChild(document.createTextNode(full.slice(0, cidx)));
+    const s = document.createElement("span");
+    s.className = "hl"; s.textContent = it.correct;
+    line.appendChild(s);
+    line.appendChild(document.createTextNode(full.slice(cidx + it.correct.length)));
+  } else {
+    line.textContent = full;
+  }
+  $("solCorrect").textContent = "「" + it.correct + "」 · 《" + it.title + "》";
+  const wb = $("solWarnBox");
+  wb.style.display = "block";
+  $("solWrong").textContent = "你选的是「" + (S.cur.lastPick || "—") + "」，注意区别哦";
+  $("btnNext").textContent = (S.hearts <= 0 || S.idx + 1 >= ROUND_SIZE) ? "看看结果 ▶" : "下一题 ▶";
+  $("mask").classList.add("show");
+  $("solPanel").style.display = "block";
+  $("endPanel").style.display = "none";
+  fit();
+}
+
+function advance() {
+  S.idx++;
+  if (S.hearts <= 0) return finish();
+  if (S.idx >= ROUND_SIZE) return finish();
+  renderQuestion();
+}
+
+/* ---------- 结算：显示正确答案跟错误答案 ---------- */
+function finish() {
+  $("mask").classList.add("show");
+  $("solPanel").style.display = "none";
+  $("endPanel").style.display = "block";
+  const st = S.stars, miss = S.log.filter(x => x.miss).length;
+  let title, sub;
+  if (st >= 3) { title = "🏆 完美通关！"; sub = "三题全对，三颗星全拿到啦"; }
+  else if (st === 2) { title = "🎉 通关成功！"; sub = "就差一点点，可以更棒哦"; }
+  else if (st === 1) { title = "💪 再练一练～"; sub = "记住刚才的解析，下一局会更好"; }
+  else { title = "😢 挑战失败"; sub = "三颗爱心用完啦，再来一局吧"; }
+  if (st < 3 && miss >= 3) sub = "三颗爱心用完啦，再来一局吧";
+  $("endTitle").textContent = title;
+  $("endSub").textContent = sub;
+  $("endStars").textContent = hudStars();
+  const box = $("recap");
+  box.innerHTML = "";
+  S.log.forEach((it, i) => {
+    const d = document.createElement("div");
+    d.className = "it" + (it.miss ? " miss" : "");
+    const w = document.createElement("div");
+    w.className = "w";
+    w.textContent = "《" + it.title + "》";
+    const em = document.createElement("em");
+    em.textContent = it.miss ? "答错了" : "答对了";
+    w.appendChild(em);
+    const t = document.createElement("div");
+    t.className = "d";
+    t.innerHTML = (it.miss ? "✘ 你选错了，正确字是 <b>" + it.correct + "</b>" : "✔ 答对了，正确字是 <b>" + it.correct + "</b>");
+    d.appendChild(w); d.appendChild(t);
+    box.appendChild(d);
+  });
+  beep(st >= 2 ? "win" : "bad");
+  fit();
+}
+
+/* ---------- 开局 ---------- */
+function newRound() {
+  S = { stars: 0, hearts: MAX_HEART, idx: 0, qs: [], cur: null, locked: false, log: [] };
+  for (let i = 0; i < ROUND_SIZE; i++) S.qs.push(buildQuestion(drawItem()));
+  $("mask").classList.remove("show");
+  renderQuestion();
+  fit();
+}
+
+/* ---------- 事件 ---------- */
+$("btnNext").addEventListener("click", () => {
+  $("mask").classList.remove("show");
+  advance();
+});
+$("btnAgain").addEventListener("click", newRound);
+$("btnQuit").addEventListener("click", () => { location.href = HOME_URL; });
+$("btnBack").addEventListener("click", () => { location.href = HOME_URL; });
+
+document.addEventListener("keydown", e => {
+  if ($("mask").classList.contains("show")) {
+    if (e.key === "Enter") { ($("endPanel").style.display === "block") ? newRound() : $("btnNext").click(); }
+    return;
+  }
+  const map = { "1": 0, "a": 0, "A": 0, "2": 1, "b": 1, "B": 1, "3": 2, "c": 2, "C": 2, "4": 3, "d": 3, "D": 3 };
+  if (map[e.key] !== undefined) {
+    const b = document.querySelectorAll(".opt")[map[e.key]];
+    if (b) b.click();
+  }
+});
+
+/* ---------- 全屏适配：整页等比缩放居中，永不滚动、永不截断 ---------- */
+function fit() {
+  const app = $("app");
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let panelNeed = 0;
+  ["solPanel", "endPanel"].forEach(id => {
+    const p = $(id);
+    if (p && p.style.display !== "none") panelNeed = Math.max(panelNeed, p.offsetHeight + 44);
+  });
+  const needH = Math.max(VH, app.scrollHeight, panelNeed);
+  const s = Math.min(vw / VW, vh / needH);
+  app.style.transform = "scale(" + s + ")";
+}
+
+newRound();
+
+$("viewport").addEventListener("touchmove", e => e.preventDefault(), { passive: false });
+document.addEventListener("gesturestart", e => e.preventDefault());
+window.addEventListener("resize", fit);
+window.addEventListener("orientationchange", () => setTimeout(fit, 120));
+document.addEventListener("DOMContentLoaded", fit);
+fit();
+setTimeout(fit, 60);
+</script>
+</body>
+</html>
